@@ -1,0 +1,70 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env / secrets
+.env
+.env.*
+.env.local
+.env.test
+
+# Build / output
+dist/
+build/
+coverage/
+lib/
+.tmp/
+.cache/
+
+# Runtime / process
+pids/
+*.pid
+*.seed
+*.pid.lock
+nohup.out
+
+# Logs
+logs/
+*.log
+*.log.*
+debug.log
+
+# Uploaded files (binaries/user uploads) — thường không lưu source control
+uploads/
+public/uploads/
+tmp/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Misc
+*.tgz
+*.gzip
+*.zip
+*.sqlite
+*.db
+*.db-journal
+*.seed
+
+# Lint / cache
+.eslintcache
+parcel-cache/
+.cache/
+.rollup.cache
+
+# Optional: lockfiles (usually you keep package-lock.json, nếu muốn ignore thì bỏ comment)
+# yarn.lock
+# package-lock.json
