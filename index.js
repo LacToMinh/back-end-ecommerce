@@ -18,6 +18,7 @@ import permissionMatrixRouter from "./routes/permissionMatrix.route.js";
 import tryOnRouter from "./routes/tryon.route.js";
 import authRoutes from "./routes/auth.routes.js";
 import momoRoutes from "./routes/momo.routes.js";
+import vnpayRoute from "./routes/vnpay.route.js";
 
 const app = express();
 app.use(cors());
@@ -51,6 +52,7 @@ app.use("/api/role", roleRouter);
 app.use("/api/permissions-matrix", permissionMatrixRouter);
 app.use("/api/tryon", tryOnRouter);
 app.use("/api/momo", momoRoutes);
+app.use("/api/vnpay", vnpayRoute);
 
 connectDB().then(() => {
   app.listen(process.env.PORT, () => {

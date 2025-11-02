@@ -14,6 +14,7 @@ import {
   getAllProductsByThirdSubCatId,
   getProduct,
   searchProduct,
+  searchSuggest,
   sortBy,
   updateProduct,
   uploadImage,
@@ -54,7 +55,9 @@ productRouter.get(
   getAllProducts
 );
 
-productRouter.get("/search", searchProduct);
+productRouter.post("/search", searchProduct);
+
+productRouter.get("/search-suggest", searchSuggest);
 
 // 🔍 Theo ID chủ đề
 productRouter.get(

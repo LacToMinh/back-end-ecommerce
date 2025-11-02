@@ -725,11 +725,10 @@ export async function sortBy(req, res) {
   }
 }
 
-// [GET] /api/product/search/ - Search product
+// [POST] /api/product/search/ - Search product
 export async function searchProduct(req, res) {
   try {
-    const query = req.query.q?.trim();
-    const { page, limit } = req.body;
+    let { query, page = 1, limit = 10 } = req.body;
 
     if (!query) {
       return res.status(400).json({
@@ -739,7 +738,10 @@ export async function searchProduct(req, res) {
       });
     }
 
-    const items = await ProductModel.find({
+    page = parseInt(page) || 1;
+    limit = parseInt(limit) || 10;
+
+    const filter = {
       $or: [
         { name: { $regex: new RegExp(query, "i") } },
         { brand: { $regex: new RegExp(query, "i") } },
@@ -747,20 +749,22 @@ export async function searchProduct(req, res) {
         { subCatName: { $regex: new RegExp(query, "i") } },
         { thirdSubCat: { $regex: new RegExp(query, "i") } },
       ],
-    })
+    };
+
+    const total = await ProductModel.countDocuments(filter);
+    const items = await ProductModel.find(filter)
       .populate("category")
       .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    const total = await items.length;
+      .limit(limit)
+      .exec();
 
     return res.status(200).json({
       success: true,
       error: false,
       data: items,
       total: total,
-      page: parseInt(page),
-      totalPage: Math.ceil(total / limit),
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     });
   } catch (error) {
     return res.status(500).json({
@@ -768,5 +772,28 @@ export async function searchProduct(req, res) {
       error: true,
       success: false,
     });
+  }
+}
+
+// [GET] /api/product/search-suggest - Search suggest
+export async function searchSuggest(req, res) {
+  try {
+    const { query } = req.query;
+
+    if (!query) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const suggestions = await ProductModel.find({
+      name: { $regex: new RegExp(query, "i") },
+    })
+      .select("name price images")
+      .limit(5);
+
+    return res.json({ success: true, data: suggestions });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ error: true, success: false, message: error.message });
   }
 }
