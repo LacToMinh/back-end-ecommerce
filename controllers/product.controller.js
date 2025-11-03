@@ -168,20 +168,33 @@ export async function getAllProducts(req, res) {
 // [GET] /api/product/getAllProductsByCatId/:id - Get products by cat id
 export async function getAllProductsByCatId(req, res) {
   try {
-    const catId = req.params.id;
-    const query = { catId };
+    // Hỗ trợ nhiều catId
+    let catIds = req.params.id?.split(","); // <-- "id1,id2" => ["id1","id2"]
+
+    // Nếu không có id, báo lỗi
+    if (!catIds || catIds.length === 0) {
+      return res.status(400).json({
+        message: "Category ID is required",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Nếu chỉ 1 id, convert sang string, còn nhiều thì dùng $in
+    const query =
+      catIds.length > 1 ? { catId: { $in: catIds } } : { catId: catIds[0] };
 
     const page = parseInt(req.query.page) || 1;
     const perPage = parseInt(req.query.perPage) || 10;
-    const totalPosts = await ProductModel.countDocuments();
-    const totalPages = Math.ceil(totalPosts / perPage);
-    const totalItems = await ProductModel.countDocuments(query);
 
-    if (page > totalPages) {
+    const totalItems = await ProductModel.countDocuments(query);
+    const totalPages = Math.ceil(totalItems / perPage);
+
+    if (page > totalPages && totalPages > 0) {
       return res.status(404).json({
         message: "Page not found",
         error: true,
-        succes: false,
+        success: false,
       });
     }
 
@@ -202,9 +215,9 @@ export async function getAllProductsByCatId(req, res) {
     return res.status(200).json({
       message: "Get products successfully",
       data: products,
-      totalPages: totalPages,
-      totalItems: totalItems,
-      page: page,
+      totalPages,
+      totalItems,
+      page,
       error: false,
       success: true,
     });
@@ -273,7 +286,6 @@ export async function getAllProductsByCatName(req, res) {
 export async function getAllProductsBySubCatId(req, res) {
   try {
     const subCatId = req.params.id;
-    const query = { subCatId: new mongoose.Types.ObjectId(subCatId) };
 
     if (!mongoose.Types.ObjectId.isValid(subCatId)) {
       return res.status(400).json({
@@ -283,13 +295,15 @@ export async function getAllProductsBySubCatId(req, res) {
       });
     }
 
+    const query = { subCatId };
+
     const page = parseInt(req.query.page) || 1;
     const perPage = parseInt(req.query.perPage) || 10;
-    const totalPosts = await ProductModel.countDocuments();
-    const totalPages = Math.ceil(totalPosts / perPage);
-    const totalItems = await ProductModel.countDocuments(query);
 
-    if (page > totalPages) {
+    const totalItems = await ProductModel.countDocuments(query);
+    const totalPages = Math.ceil(totalItems / perPage);
+
+    if (page > totalPages && totalPages > 0) {
       return res.status(404).json({
         message: "Page not found",
         error: true,
@@ -333,7 +347,6 @@ export async function getAllProductsBySubCatId(req, res) {
 export async function getAllProductsByThirdSubCatId(req, res) {
   try {
     const thirdCatId = req.params.id;
-    const query = { thirdSubCatId: new mongoose.Types.ObjectId(thirdCatId) };
 
     if (!mongoose.Types.ObjectId.isValid(thirdCatId)) {
       return res.status(400).json({
@@ -343,13 +356,15 @@ export async function getAllProductsByThirdSubCatId(req, res) {
       });
     }
 
+    const query = { thirdCatId };
+
     const page = parseInt(req.query.page) || 1;
     const perPage = parseInt(req.query.perPage) || 10;
-    const totalPosts = await ProductModel.countDocuments();
-    const totalPages = Math.ceil(totalPosts / perPage);
-    const totalItems = await ProductModel.countDocuments(query);
 
-    if (page > totalPages) {
+    const totalItems = await ProductModel.countDocuments(query);
+    const totalPages = Math.ceil(totalItems / perPage);
+
+    if (page > totalPages && totalPages > 0) {
       return res.status(404).json({
         message: "Page not found",
         error: true,
