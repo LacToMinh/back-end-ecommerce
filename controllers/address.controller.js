@@ -99,7 +99,7 @@ export async function getAddressController(req, res) {
   }
 }
 
-// [GET] /api/address/select
+// [PUT] /api/address/selectAddress
 export async function selectAddressController(req, res) {
   try {
     const addressId = req?.params.id;

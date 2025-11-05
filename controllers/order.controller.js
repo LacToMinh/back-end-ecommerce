@@ -1,73 +1,138 @@
 import OrderModel from "../models/order.model.js";
 import ProductModel from "../models/product.model.js";
 import paypal from "@paypal/checkout-server-sdk";
+import VoucherModel from "../models/voucher.model.js";
 // const paypal = require("@paypal/checkout-server-sdk");
 
 // [POST] /api/order/create
-export const createOrderController = async (request, response) => {
+// export const createOrderController = async (request, response) => {
+//   try {
+//     // 1. Kiểm tra đầu vào tối thiểu
+//     if (
+//       !request.body.userId ||
+//       !request.body.products ||
+//       !request.body.products.length
+//     ) {
+//       return response.status(400).json({
+//         error: true,
+//         success: false,
+//         message: "Thiếu thông tin đơn hàng hoặc giỏ hàng rỗng!",
+//       });
+//     }
+
+//     // 2. Trừ tồn kho cho từng sản phẩm, kiểm tra trước khi tạo đơn
+//     for (let i = 0; i < request.body.products.length; i++) {
+//       const { productId, quantity } = request.body.products[i];
+
+//       // Lấy sản phẩm từ DB
+//       const product = await ProductModel.findById(productId);
+
+//       // Kiểm tra còn hàng không
+//       if (!product || product.countInStock < quantity) {
+//         return response.status(400).json({
+//           error: true,
+//           success: false,
+//           message: `Sản phẩm ${
+//             product ? product.productTitle : ""
+//           } không đủ hàng!`,
+//         });
+//       }
+
+//       // Trừ tồn kho rồi lưu lại
+//       product.countInStock -= quantity;
+//       await product.save();
+//     }
+
+//     // 3. Tạo order sau khi đã trừ kho thành công
+//     let order = new OrderModel({
+//       user: request.body.userId,
+//       products: request.body.products,
+//       paymentId: request.body.paymentId,
+//       payment_status: request.body.payment_status,
+//       delivery_address: request.body.delivery_address,
+//       totalAmt: request.body.totalAmt,
+//       date: request.body.date, // Không cần nếu dùng timestamps của Mongoose
+//     });
+
+//     await order.save();
+
+//     response.status(201).json({
+//       error: false,
+//       success: true,
+//       message: "Tạo order thành công!",
+//       order,
+//     });
+//   } catch (err) {
+//     response.status(500).json({
+//       error: true,
+//       success: false,
+//       message: "Lỗi khi tạo order!",
+//       err: err.message,
+//     });
+//   }
+// };
+
+export const createOrderController = async (req, res) => {
   try {
-    // 1. Kiểm tra đầu vào tối thiểu
-    if (
-      !request.body.userId ||
-      !request.body.products ||
-      !request.body.products.length
-    ) {
-      return response.status(400).json({
-        error: true,
-        success: false,
-        message: "Thiếu thông tin đơn hàng hoặc giỏ hàng rỗng!",
-      });
-    }
+    const { userId, products, totalAmt, delivery_address, voucherCode } = req.body;
 
-    // 2. Trừ tồn kho cho từng sản phẩm, kiểm tra trước khi tạo đơn
-    for (let i = 0; i < request.body.products.length; i++) {
-      const { productId, quantity } = request.body.products[i];
+    if (!userId || !products?.length)
+      return res.status(400).json({ message: "Thiếu thông tin đơn hàng!" });
 
-      // Lấy sản phẩm từ DB
-      const product = await ProductModel.findById(productId);
-
-      // Kiểm tra còn hàng không
-      if (!product || product.countInStock < quantity) {
-        return response.status(400).json({
-          error: true,
-          success: false,
-          message: `Sản phẩm ${
-            product ? product.productTitle : ""
-          } không đủ hàng!`,
-        });
-      }
-
-      // Trừ tồn kho rồi lưu lại
-      product.countInStock -= quantity;
+    // 🔹 Kiểm tra tồn kho
+    for (let item of products) {
+      const product = await ProductModel.findById(item.productId);
+      if (!product || product.countInStock < item.quantity)
+        return res.status(400).json({ message: `Sản phẩm ${product?.productTitle} không đủ hàng!` });
+      product.countInStock -= item.quantity;
       await product.save();
     }
 
-    // 3. Tạo order sau khi đã trừ kho thành công
-    let order = new OrderModel({
-      user: request.body.userId,
-      products: request.body.products,
-      paymentId: request.body.paymentId,
-      payment_status: request.body.payment_status,
-      delivery_address: request.body.delivery_address,
-      totalAmt: request.body.totalAmt,
-      date: request.body.date, // Không cần nếu dùng timestamps của Mongoose
+    let finalTotal = totalAmt;
+    let appliedVoucher = null;
+
+    // 🔹 Nếu có mã giảm giá
+    if (voucherCode) {
+      const voucher = await VoucherModel.findOne({
+        code: voucherCode.toUpperCase(),
+        isActive: true,
+      });
+
+      if (!voucher)
+        return res.status(400).json({ message: "Mã giảm giá không hợp lệ!" });
+
+      if (new Date() > new Date(voucher.expiryDate))
+        return res.status(400).json({ message: "Mã giảm giá đã hết hạn!" });
+
+      if (totalAmt < voucher.minOrderValue)
+        return res.status(400).json({
+          message: `Đơn hàng phải từ ${voucher.minOrderValue.toLocaleString()} VND mới áp dụng được mã này.`,
+        });
+
+      // Áp dụng giảm giá
+      finalTotal = Math.max(0, totalAmt - voucher.discountAmount);
+      appliedVoucher = voucher.code;
+
+      // Cập nhật số lần sử dụng
+      voucher.usedCount += 1;
+      await voucher.save();
+    }
+
+    const order = await OrderModel.create({
+      user: userId,
+      products,
+      delivery_address,
+      totalAmt: finalTotal,
+      voucherCode: appliedVoucher,
     });
 
-    await order.save();
-
-    response.status(201).json({
-      error: false,
+    res.status(201).json({
       success: true,
-      message: "Tạo order thành công!",
+      message: "Tạo đơn hàng thành công!",
       order,
     });
   } catch (err) {
-    response.status(500).json({
-      error: true,
-      success: false,
-      message: "Lỗi khi tạo order!",
-      err: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
